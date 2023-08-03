@@ -3,6 +3,28 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MAX(a, b) ((a) > (b)) ? (a) : (b)
+#define CLZ(num) _Generic((num), \
+    unsigned int: __builtin_clz(num), \
+    unsigned long: __builtin_clzl(num), \
+    unsigned long long: __builtin_clzll(num))
+
+// big number version of __builtin_clz
+// count the number of zero of src
+// note that the unit is BLOCK_LEN
+static inline int bn_clz(const bn *src)
+{
+    int num_of_zero = 0, i;
+    for (i = src->size-1; i>=0; i--) {
+        if (src->number[i]) {
+            n_type zero = 0;
+            num_of_zero += (CLZ(src->number[i]) / CLZ(zero));
+        } else {
+            num_of_zero += 1;
+        }
+    }
+    return num_of_zero;
+}
 
 bn *bn_init (size_t size)
 {
@@ -30,12 +52,6 @@ void bn_free (bn *num)
     free(num);
 }
 
-unsigned int max_size (bn *num1, bn *num2)
-{
-    unsigned int ans = num1->size >= num2->size ? num1->size : num2->size;
-    return ans;
-}
-
 void bn_resize (bn *num ,int new_size)
 {
     if (num->size == new_size)
@@ -53,7 +69,7 @@ void bn_resize (bn *num ,int new_size)
 void bn_add (bn *a, bn *b, bn *c)
 {
     // c = a + b
-    unsigned int new_size = max_size(a, b) + 1;
+    unsigned int new_size = MAX(a->size, b->size) + 1;
     bn_resize(c, new_size);
     
     n_type carry = 0;
@@ -76,6 +92,34 @@ void bn_add (bn *a, bn *b, bn *c)
         bn_resize(c, c->size - 1);
 }
 
+// c = a - b
+// note that |a| > |b|
+void bn_sub(const bn *a, const bn *b, bn *c)
+{
+    unsigned int new_size = MAX(a->size, b->size);
+    bn_resize(c, new_size);
+
+    n_type carry = 0;
+    int i;
+    for (i=0; i<new_size; i++) {
+        n_type tmp1 = i < a->size ? a->number[i] : 0;
+        n_type tmp2 = i < b->size ? b->number[i] : 0;
+        if (carry == 1)
+            tmp1 -= 1;
+        if (tmp1 < tmp2) {
+            c->number[i] = (n_type) BASE - tmp2 + tmp1;
+            carry = 1;
+        } else {
+            c->number[i] = (n_type) tmp1 - tmp2;
+            carry = 0;
+        }
+    }
+
+    new_size = bn_clz(c);
+    if (new_size == c->size)
+        new_size -= 1;
+    bn_resize(c, c->size - new_size);
+}
 
 char *string_resize(char *str, int len)
 {
@@ -114,11 +158,3 @@ char *bn_to_string (bn *num)
     num_str = string_resize(num_str, str_len);
     return num_str;
 }
-
-
-
-
-
-
-
-

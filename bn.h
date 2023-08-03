@@ -18,6 +18,7 @@ typedef struct {
 bn *bn_init(size_t size);
 void bn_free(bn *num);
 void bn_add(bn *a, bn *b, bn *c);
+void bn_sub(const bn *a, const bn *b, bn *c);
 void bn_resize(bn *num, int new_size);
 char *bn_to_string(bn *num);
 
